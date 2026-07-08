@@ -94,6 +94,12 @@ def prepare_definition(definition: dict[str, Any]) -> dict[str, Any]:
 def handle_block_type(block_type: str, blocks: dict[str, Any]) -> list[dict[str, Any]]:
     result: list[dict[str, Any]] = []
 
+    if not isinstance(blocks, dict):
+        # Some tools emit a block (e.g. a top-level "provider" list) in a shape the parser does not
+        # expect. Skip it instead of letting `.items()` raise and abort the entire terraform_json run.
+        logger.debug(f"Skipping block type '{block_type}' with unexpected non-dict shape: {type(blocks).__name__}")
+        return result
+
     for block_name, config in blocks.items():
         if block_name == COMMENT_FIELD_NAME or block_name in LINE_FIELD_NAMES:
             continue
@@ -105,14 +111,24 @@ def handle_block_type(block_type: str, blocks: dict[str, Any]) -> list[dict[str,
                     continue
                 result.append({block_name: {resource_name: hclify(obj=resource_config)}})
         elif block_type == BlockType.PROVIDER:
-            # provider are stored as a list, which we need to move one level higher to add the name
-            for provider_config in config:
-                result.append({block_name: hclify(obj=provider_config)})
+            # Provider configs are expected as a list of dicts. Terraform also accepts a single object
+            # (e.g. Databricks-bundle / CDKTF generated `*.tf.json`), which previously reached hclify as
+            # a bare dict key (str) and crashed the whole run. Normalize to a list and skip non-dicts.
+            provider_configs = config if isinstance(config, list) else [config]
+            for provider_config in provider_configs:
+                if isinstance(provider_config, dict):
+                    result.append({block_name: hclify(obj=provider_config)})
+                else:
+                    logger.debug(f"Skipping non-dict provider config for '{block_name}': {type(provider_config).__name__}")
         elif block_type == BlockType.LOCALS:
             # a local block is stored as single dict
             return [hclify(obj=blocks)]
-        else:
+        elif isinstance(config, dict):
             result.append({block_name: hclify(obj=config)})
+        else:
+            # e.g. `terraform.required_version` is a plain string; such scalars carry no checks and must
+            # not reach hclify (which only accepts dicts) or they crash the whole terraform_json run.
+            logger.debug(f"Skipping non-dict config for block '{block_type}.{block_name}': {type(config).__name__}")
 
     return result
 
