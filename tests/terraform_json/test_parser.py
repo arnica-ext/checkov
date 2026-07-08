@@ -37,12 +37,10 @@ def test_hclify():
 
 
 def test_prepare_definition_provider_as_object():
-    # Databricks-bundle / CDKTF style: provider config is a bare object instead of a list of objects.
-    # Previously this crashed with `Exception: this method receives only dicts`.
     definition = {
         "provider": {
-            "databricks": {
-                "host": "https://example.cloud.databricks.com",
+            "my_provider": {
+                "some_attribute": "some_value",
             }
         }
     }
@@ -52,8 +50,8 @@ def test_prepare_definition_provider_as_object():
     assert tf_definition == {
         "provider": [
             {
-                "databricks": {
-                    "host": ["https://example.cloud.databricks.com"],
+                "my_provider": {
+                    "some_attribute": ["some_value"],
                 }
             }
         ]
@@ -61,11 +59,10 @@ def test_prepare_definition_provider_as_object():
 
 
 def test_prepare_definition_provider_as_list():
-    # The already-correct list-of-objects shape must keep working unchanged.
     definition = {
         "provider": {
-            "aws": [
-                {"region": "us-west-2"},
+            "my_provider": [
+                {"some_attribute": "some_value"},
             ]
         }
     }
@@ -75,8 +72,8 @@ def test_prepare_definition_provider_as_list():
     assert tf_definition == {
         "provider": [
             {
-                "aws": {
-                    "region": ["us-west-2"],
+                "my_provider": {
+                    "some_attribute": ["some_value"],
                 }
             }
         ]
@@ -84,10 +81,9 @@ def test_prepare_definition_provider_as_list():
 
 
 def test_prepare_definition_provider_as_top_level_list_does_not_crash():
-    # A top-level provider list (blocks is a list) previously raised AttributeError on `.items()`.
     definition = {
         "provider": [
-            {"aws": {"region": "us-west-2"}},
+            {"my_provider": {"some_attribute": "some_value"}},
         ]
     }
 
@@ -97,10 +93,9 @@ def test_prepare_definition_provider_as_top_level_list_does_not_crash():
 
 
 def test_prepare_definition_terraform_required_version_string_is_skipped():
-    # `terraform.required_version` is a plain string; it must be skipped, not passed to hclify.
     definition = {
         "terraform": {
-            "required_version": ">= 1.5.0",
+            "required_version": ">= 1.0.0",
         }
     }
 

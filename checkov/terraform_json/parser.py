@@ -111,9 +111,7 @@ def handle_block_type(block_type: str, blocks: dict[str, Any]) -> list[dict[str,
                     continue
                 result.append({block_name: {resource_name: hclify(obj=resource_config)}})
         elif block_type == BlockType.PROVIDER:
-            # Provider configs are expected as a list of dicts. Terraform also accepts a single object
-            # (e.g. Databricks-bundle / CDKTF generated `*.tf.json`), which previously reached hclify as
-            # a bare dict key (str) and crashed the whole run. Normalize to a list and skip non-dicts.
+            # Provider configs are expected as a list of dicts. Normalize to a list and skip non-dicts.
             provider_configs = config if isinstance(config, list) else [config]
             for provider_config in provider_configs:
                 if isinstance(provider_config, dict):
@@ -126,8 +124,6 @@ def handle_block_type(block_type: str, blocks: dict[str, Any]) -> list[dict[str,
         elif isinstance(config, dict):
             result.append({block_name: hclify(obj=config)})
         else:
-            # e.g. `terraform.required_version` is a plain string; such scalars carry no checks and must
-            # not reach hclify (which only accepts dicts) or they crash the whole terraform_json run.
             logger.debug(f"Skipping non-dict config for block '{block_type}.{block_name}': {type(config).__name__}")
 
     return result
