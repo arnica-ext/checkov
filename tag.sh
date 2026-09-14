@@ -5,7 +5,7 @@ set -e
 #   branch: <upstream-version>-arnica-patch
 #   tag:    <upstream-version>-arnica-patch-0.0.N
 # Bump TAG for each new patch release, then run this script from the repo root.
-TAG="3.2.404-arnica-patch-0.0.1"
+TAG="3.2.404-arnica-patch-0.0.2"
 
 # `checkov/version.py` must be a PEP 440 valid string (setuptools rejects the dashed tag form),
 # so the patch identifier is encoded as a PEP 440 local-version segment.

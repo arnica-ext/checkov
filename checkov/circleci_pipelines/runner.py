@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from checkov.common.checks.base_check_registry import BaseCheckRegistry
 
 WORKFLOW_DIRECTORY = "circleci"
+JOBS_DOCKER_ENTITY = 'jobs.*.docker[].{image: image, __startline__: __startline__, __endline__:__endline__}'
+EXECUTORS_DOCKER_ENTITY = 'executors.*.docker[].{image: image, __startline__: __startline__, __endline__:__endline__}'
 
 
 class Runner(YamlRunner):
@@ -64,13 +66,19 @@ class Runner(YamlRunner):
             job_name = self.resolve_sub_name(definition, start_line, end_line, tag='jobs')
             step_name = self.resolve_step_name(definition['jobs'].get(job_name), start_line, end_line)
             new_key = f'jobs({job_name}).steps{step_name}' if job_name else "jobs"
-        elif 'jobs.*.docker[].{image: image, __startline__: __startline__, __endline__:__endline__}' in supported_entities:
+        elif JOBS_DOCKER_ENTITY in supported_entities and key.startswith(JOBS_DOCKER_ENTITY):
+            jobs = definition.get('jobs')
+            if not isinstance(jobs, dict):
+                return new_key
             job_name = self.resolve_sub_name(definition, start_line, end_line, tag='jobs')
-            image_name = self.resolve_image_name(definition['jobs'].get(job_name), start_line, end_line)
+            image_name = self.resolve_image_name(jobs.get(job_name), start_line, end_line)
             new_key = f'jobs({job_name}).docker.image{image_name}' if job_name else "jobs"
-        elif 'executors.*.docker[].{image: image, __startline__: __startline__, __endline__:__endline__}':
+        elif EXECUTORS_DOCKER_ENTITY in supported_entities and key.startswith(EXECUTORS_DOCKER_ENTITY):
+            executors = definition.get('executors')
+            if not isinstance(executors, dict):
+                return new_key
             executor_name = self.resolve_sub_name(definition, start_line, end_line, tag='executors')
-            image_name = self.resolve_image_name(definition['executors'].get(executor_name), start_line, end_line)
+            image_name = self.resolve_image_name(executors.get(executor_name), start_line, end_line)
             new_key = f'executors({executor_name}).docker.image{image_name}' if executor_name else "executors"
         return new_key
 

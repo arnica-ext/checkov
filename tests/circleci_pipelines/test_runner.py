@@ -3,6 +3,7 @@ import unittest
 import pytest
 
 from checkov.circleci_pipelines.runner import Runner
+from checkov.circleci_pipelines.runner import EXECUTORS_DOCKER_ENTITY, JOBS_DOCKER_ENTITY
 from checkov.common.bridgecrew.check_type import CheckType
 from checkov.common.bridgecrew.severities import Severities, BcSeverities
 from checkov.runner_filter import RunnerFilter
@@ -77,6 +78,43 @@ def test_get_resource(file_path, key, supported_entities, expected_key, start_li
     new_key = runner.get_resource(file_path, key, supported_entities, start_line, end_line)
 
     assert new_key == expected_key
+
+
+def test_get_resource_for_executor_when_jobs_are_not_defined(file_path, definition):
+    executor_only_definition = {
+        file_path: {
+            "executors": definition[file_path]["executors"]
+        }
+    }
+    runner = Runner()
+    runner.definitions = executor_only_definition
+    key = f"{EXECUTORS_DOCKER_ENTITY}.{EXECUTORS_DOCKER_ENTITY}.CKV_CIRCLECIPIPELINES_8[9:11]"
+
+    new_key = runner.get_resource(
+        file_path,
+        key,
+        (EXECUTORS_DOCKER_ENTITY, JOBS_DOCKER_ENTITY),
+        start_line=9,
+        end_line=11
+    )
+
+    assert new_key == "executors(image-executor).docker.image[1](mongo:2.6.8)"
+
+
+def test_get_resource_for_job_when_image_check_supports_jobs_and_executors(file_path, definition):
+    runner = Runner()
+    runner.definitions = definition
+    key = f"{JOBS_DOCKER_ENTITY}.{JOBS_DOCKER_ENTITY}.CKV_CIRCLECIPIPELINES_8[33:34]"
+
+    new_key = runner.get_resource(
+        file_path,
+        key,
+        (EXECUTORS_DOCKER_ENTITY, JOBS_DOCKER_ENTITY),
+        start_line=33,
+        end_line=34
+    )
+
+    assert new_key == "jobs(test-docker-versioned-img).docker.image[1](mongo:2.6.8)"
 
 
 if __name__ == "__main__":

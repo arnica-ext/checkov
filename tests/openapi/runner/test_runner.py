@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 import json
 
@@ -125,6 +126,17 @@ class TestRunnerValid(unittest.TestCase):
         )
         result = runner.pre_validate_file(file_content)
         self.assertTrue(result)
+
+    def test_load_files_ignores_dangling_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dangling_symlink = os.path.join(temp_dir, "components.yaml")
+            os.symlink(os.path.join(temp_dir, "missing-components.yaml"), dangling_symlink)
+
+            runner = Runner()
+            runner._load_files(files_to_load=[dangling_symlink])
+
+            self.assertEqual(runner.definitions, {})
+            self.assertEqual(runner.definitions_raw, {})
 
     def test_runner_results_consistency(self) -> None:
         current_dir = os.path.dirname(__file__)

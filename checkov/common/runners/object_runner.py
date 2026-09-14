@@ -71,6 +71,9 @@ class Runner(BaseRunner[_ObjectDefinitions, _ObjectContext, ObjectGraphManager])
             filename_fn: Callable[[str], str] | None = None,
     ) -> None:
         files_to_load = [filename_fn(file) if filename_fn else file for file in files_to_load]
+        # Git can contain symlinks whose targets are unavailable, such as files from an uninitialized submodule.
+        # Ignore those entries before a framework parser attempts to open them.
+        files_to_load = [file for file in files_to_load if Path(file).is_file()]
         results = parallel_runner.run_function(lambda f: (f, self._parse_file(f)), files_to_load)
         for file_result_pair in results:
             if file_result_pair is None:
