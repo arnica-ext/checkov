@@ -150,7 +150,7 @@ class Runner(ImageReferencerMixin[None], BaseRunner[_KubernetesDefinitions, _Kub
         for _, file_conf in self.definitions.items():
             for resource in file_conf[:]:
                 if resource.get('kind') == "List":
-                    file_conf.extend(item for item in resource.get("items", []) if item)
+                    file_conf.extend(item for item in (resource.get("items") or []) if item)
                     file_conf.remove(resource)
 
     def check_definitions(
