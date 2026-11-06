@@ -1,1 +1,1 @@
-version = '3.2.404+arnica.patch.0.0.2'
+version = '3.2.404+arnica.patch.0.0.3'

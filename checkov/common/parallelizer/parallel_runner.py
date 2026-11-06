@@ -93,25 +93,46 @@ class ParallelRunner:
             f"Running function {func.__code__.co_filename.replace('.py', '')}.{func.__name__} with parallelization type 'fork'"
         )
         processes = []
-        for group_of_items in groups_of_items:
-            parent_conn, child_conn = multiprocessing.Pipe(duplex=False)
-            process = multiprocessing.get_context("fork").Process(
-                target=func_wrapper, args=(func, group_of_items, child_conn)
-            )
-            processes.append((process, parent_conn, len(group_of_items)))
-            process.start()
-
-        for _, parent_conn, group_len in processes:
-            for _ in range(group_len):
+        # Only a fully drained run lets workers exit naturally; errors or generator.close() need termination.
+        completed = False
+        try:
+            for group_of_items in groups_of_items:
+                parent_conn, child_conn = multiprocessing.Pipe(duplex=False)
                 try:
-                    v = parent_conn.recv()
+                    process = multiprocessing.get_context("fork").Process(
+                        target=func_wrapper, args=(func, group_of_items, child_conn)
+                    )
+                    process.start()
+                except BaseException:
+                    parent_conn.close()
+                    raise
+                finally:
+                    child_conn.close()
+                processes.append((process, parent_conn, len(group_of_items)))
 
-                    if isinstance(v, ParallelRunException):
-                        raise v.internal_exception.with_traceback(v.internal_exception.__traceback__)
+            for _, parent_conn, group_len in processes:
+                for _ in range(group_len):
+                    try:
+                        v = parent_conn.recv()
 
-                    yield v
-                except EOFError:
-                    pass
+                        if isinstance(v, ParallelRunException):
+                            raise v.internal_exception.with_traceback(v.internal_exception.__traceback__)
+
+                        yield v
+                    except EOFError:
+                        pass
+            completed = True
+        finally:
+            for process, parent_conn, _ in processes:
+                parent_conn.close()
+                # Unread results can leave workers blocked in send(). Forked children inherit
+                # pipe readers, so closing ours cannot unblock them when collection stops early.
+                if not completed and process.is_alive():
+                    process.terminate()
+            # Terminate all remaining workers before joining so none can stall cleanup on a full pipe.
+            # Reap workers on successful runs too, leaving nothing for Python's atexit hook to join.
+            for process, _, _ in processes:
+                process.join()
 
     def _run_function_multiprocess_spawn(
         self, func: Callable[[Any], _T], items: list[Any], group_size: int | None
