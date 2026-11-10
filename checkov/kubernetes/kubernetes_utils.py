@@ -14,7 +14,7 @@ from checkov.common.models.consts import YAML_COMMENT_MARK
 from checkov.common.parallelizer.parallel_runner import parallel_runner
 from checkov.common.runners.base_runner import filter_ignored_paths
 from checkov.common.util.type_forcers import force_list
-from checkov.kubernetes.parser.parser import parse
+from checkov.kubernetes.parser.parser import GENERATED_NAME_INDEX, parse
 
 if TYPE_CHECKING:
     from checkov.common.typing import _SkippedCheck, _CheckResult, _EntityContext
@@ -214,10 +214,24 @@ def is_invalid_k8_pod_definition(definition: Dict[str, Any]) -> bool:
     if not isinstance(spec, dict) and not isinstance(spec, list):
         return True
     labels = metadata.get('labels')
-    name = metadata.get('name')
+    name = get_resource_name(definition)
     if name is None and labels is None:
         return True
     return False
+
+
+def get_resource_name(resource: dict[str, Any]) -> str | None:
+    """Return a static scan name, distinguishing generated resources by their file index."""
+    metadata = resource.get("metadata") or {}
+    name = metadata.get("name")
+    if name:
+        return name
+
+    # The API server adds a unique suffix; a shared prefix alone is not a resource identity.
+    generated_name = metadata.get("generateName")
+    if generated_name and GENERATED_NAME_INDEX in resource:
+        return f"{generated_name}[{resource[GENERATED_NAME_INDEX]}]"
+    return generated_name
 
 
 def get_resource_id(resource: dict[str, Any] | None) -> str | None:
@@ -227,7 +241,7 @@ def get_resource_id(resource: dict[str, Any] | None) -> str | None:
     resource_type = resource.get("kind", DEFAULT_NESTED_RESOURCE_TYPE)
     metadata = resource.get("metadata") or {}
     namespace = metadata.get("namespace", "default")
-    name = metadata.get("name")
+    name = get_resource_name(resource)
     if name:
         return f'{resource_type}.{namespace}.{name}'
     labels = metadata.get("labels")
