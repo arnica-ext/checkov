@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,36 @@ from checkov.kubernetes.parser.validatior import K8sValidator
 
 logger = logging.getLogger(__name__)
 add_resource_code_filter_to_logger(logger)
+
+GENERATED_NAME_INDEX = "_checkov_generated_name_index"
+
+
+def _set_generated_name_indices(value: Any, next_index: int = 1) -> int:
+    """Index generated resources in depth-first order, visiting each container once."""
+    # Iterators preserve traversal order without copying wide containers onto the stack.
+    pending: list[Iterator[Any]] = [iter((value,))]
+    visited: set[int] = set()
+    while pending:
+        try:
+            current = next(pending[-1])
+        except StopIteration:
+            pending.pop()
+            continue
+
+        if not isinstance(current, (dict, list)) or id(current) in visited:
+            continue
+        # YAML aliases can revisit a container or form a cycle.
+        visited.add(id(current))
+
+        if isinstance(current, dict):
+            metadata = current.get("metadata")
+            if isinstance(metadata, dict) and metadata.get("generateName") and not metadata.get("name"):
+                current[GENERATED_NAME_INDEX] = next_index
+                next_index += 1
+            pending.append(iter(current.values()))
+        else:
+            pending.append(iter(current))
+    return next_index
 
 
 def parse(filename: str) -> tuple[list[dict[str, Any]], list[tuple[int, str]]] | None:
@@ -55,4 +86,5 @@ def parse(filename: str) -> tuple[list[dict[str, Any]], list[tuple[int, str]]] |
             logger.debug('Cannot read file contents: %s - is it a yaml?', filename)
         return None
 
+    _set_generated_name_indices(valid_templates)
     return valid_templates, template_lines

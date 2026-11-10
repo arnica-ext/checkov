@@ -11,7 +11,7 @@ from checkov.common.util.data_structures_utils import pickle_deepcopy
 from checkov.kubernetes.graph_builder.graph_components.blocks import KubernetesBlock, KubernetesBlockMetadata, KubernetesSelector
 from checkov.kubernetes.graph_builder.graph_components.edge_builders.K8SEdgeBuilder import K8SEdgeBuilder
 from checkov.kubernetes.graph_builder.graph_components.edge_builders.ServiceAccountEdgeBuilder import ServiceAccountEdgeBuilder
-from checkov.kubernetes.kubernetes_utils import DEFAULT_NESTED_RESOURCE_TYPE, is_invalid_k8_definition, get_resource_id, is_invalid_k8_pod_definition, \
+from checkov.kubernetes.kubernetes_utils import DEFAULT_NESTED_RESOURCE_TYPE, is_invalid_k8_definition, get_resource_id, get_resource_name, is_invalid_k8_pod_definition, \
     remove_metadata_from_attribute, PARENT_RESOURCE_KEY_NAME, PARENT_RESOURCE_ID_KEY_NAME, SUPPORTED_POD_CONTAINERS_TYPES
 from checkov.kubernetes.kubernetes_graph_flags import K8sGraphFlags
 from checkov.kubernetes.graph_builder.graph_components.edge_builders.LabelSelectorEdgeBuilder import LabelSelectorEdgeBuilder
@@ -42,8 +42,6 @@ class KubernetesLocalGraph(LocalGraph[KubernetesBlock]):
 
             for resource in file_conf[:]:
                 resource_type = resource.get('kind', DEFAULT_NESTED_RESOURCE_TYPE)
-                metadata = resource.get('metadata') or {}
-                # TODO: add support for generateName
 
                 if resource_type == DEFAULT_NESTED_RESOURCE_TYPE:
                     if is_invalid_k8_pod_definition(resource):
@@ -52,7 +50,7 @@ class KubernetesLocalGraph(LocalGraph[KubernetesBlock]):
                         continue
 
                 else:
-                    if is_invalid_k8_definition(resource) or not metadata.get('name'):
+                    if is_invalid_k8_definition(resource) or not get_resource_name(resource):
                         logging.info(f"failed to create a vertex in file {file_path}")
                         file_conf.remove(resource)
                         continue
@@ -163,7 +161,7 @@ class KubernetesLocalGraph(LocalGraph[KubernetesBlock]):
                 all_resources.append(conf)
                 return
 
-            parent_name = metadata.get('name', "")
+            parent_name = get_resource_name(conf) or ""
             template[PARENT_RESOURCE_KEY_NAME] = parent_name
             if not template.get('kind'):
                 template['kind'] = DEFAULT_NESTED_RESOURCE_TYPE
