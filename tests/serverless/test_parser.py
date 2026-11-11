@@ -53,6 +53,15 @@ class TestParser(unittest.TestCase):
         }
         self.assertEqual(expected, process_variables(case, IRRELEVANT_DIR))
 
+    def test_self_many_distinct_refs_do_not_crash_jmespath_cache(self):
+        # jmespath 1.0.1 raises TypeError once its parse cache passes 128 expressions.
+        variables = {f"k{i}": f"v{i}" for i in range(200)}
+        consumers = {f"c{i}": f"${{self:custom.vars.k{i}}}" for i in range(200)}
+        case = {"custom": {"vars": variables}, "functions": consumers}
+        result = process_variables(case, IRRELEVANT_DIR)
+        self.assertEqual(result["functions"]["c0"], "v0")
+        self.assertEqual(result["functions"]["c199"], "v199")
+
     def test_self_invalid(self):
         case = {
             "consumer": "${self:bogus-no-default}"

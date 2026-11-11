@@ -77,7 +77,7 @@ setup(
         "pyyaml<7.0.0,>=6.0.0",
         "boto3==1.35.49",
         "gitpython>=3.1.30,<4.0.0",
-        "jmespath>=1.0.0,<2.0.0",
+        "jmespath==1.1.0",
         "tqdm<5.0.0,>=4.65.0",
         "packaging>=23.0,<24.0",
         "cloudsplaining<0.8.0,>=0.7.0",
